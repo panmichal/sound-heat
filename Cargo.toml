@@ -8,3 +8,6 @@ hound = "3.5.1"
 minimp3 = "0.6.1"
 rustfft = "6.4.1"
 symphonia = "0.5.5"
+
+[features]
+default = ["symphonia/mp3"]

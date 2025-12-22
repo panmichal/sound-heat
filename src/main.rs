@@ -1,8 +1,8 @@
-use minimp3::{Decoder, Frame};
+mod decode;
+
 use rustfft::{FftPlanner, num_complex::Complex};
 use std::env;
 use std::fs::File;
-use std::io::BufReader;
 
 // Define the sample rate (Hz) for the analysis. Most MP3s use 44100 Hz.
 // This can be made dynamic if needed.
@@ -30,15 +30,17 @@ fn main() {
     // Open the MP3 file for reading.
     let file = File::open(file_path).expect("Failed to open file");
     // Wrap the file in a buffered reader and create an MP3 decoder.
-    let mut decoder = Decoder::new(BufReader::new(file));
+    // let mut decoder = Decoder::new(BufReader::new(file));
 
-    // Collect all decoded audio samples (i16) and convert to f32 in the range [-1.0, 1.0].
-    let mut samples: Vec<f32> = Vec::new();
-    while let Ok(Frame { data, .. }) = decoder.next_frame() {
-        samples.extend(data.iter().map(|&s| s as f32 / 32768.0));
-    }
+    // // Collect all decoded audio samples (i16) and convert to f32 in the range [-1.0, 1.0].
+    // let mut samples: Vec<f32> = Vec::new();
+    // while let Ok(Frame { data, .. }) = decoder.next_frame() {
+    //     samples.extend(data.iter().map(|&s| s as f32 / 32768.0));
+    // }
 
-    println!("Decoded {} samples.", samples.len());
+    // println!("Decoded {} samples.", samples.len());
+
+    let samples = decode::decode(file).expect("Failed to decode audio");
 
     let audio_duration = samples.len() as f32 / SAMPLE_RATE as f32;
     println!(
