@@ -1,0 +1,10 @@
+[package]
+name = "sound_heat"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hound = "3.5.1"
+minimp3 = "0.6.1"
+rustfft = "6.4.1"
+symphonia = "0.5.5"
