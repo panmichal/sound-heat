@@ -99,4 +99,38 @@ fn main() {
 
         println!("{} ({}-{} Hz): {:.4} dB", name, low, high, avg_db);
     }
+
+    // Number of bands for the spectrum chart
+    let num_bands = 32;
+    let max_db = 0.0; // 0 dBFS (full scale)
+    let min_db = -100.0; // Minimum dB to display
+
+    println!("\nSpectrum Analyzer:");
+    for band in 0..num_bands {
+        // Calculate frequency range for this band
+        let low_freq = band as f32 * SAMPLE_RATE as f32 / 2.0 / num_bands as f32;
+        let high_freq = (band + 1) as f32 * SAMPLE_RATE as f32 / 2.0 / num_bands as f32;
+        let low_bin = ((low_freq / SAMPLE_RATE as f32) * fft_size as f32).floor() as usize;
+        let high_bin = ((high_freq / SAMPLE_RATE as f32) * fft_size as f32).ceil() as usize;
+
+        // Average magnitude for the band, normalized
+        let band_bins = &spectrum[low_bin..high_bin.min(spectrum.len())];
+        let avg = if !band_bins.is_empty() {
+            band_bins.iter().sum::<f32>() / band_bins.len() as f32 / fft_size as f32
+        } else {
+            0.0
+        };
+        let epsilon = 1e-10;
+        let db = 20.0 * (avg + epsilon).log10();
+
+        // Map dB to bar length
+        let bar_len = (((db - min_db) / (max_db - min_db)) * 50.0).max(0.0) as usize;
+        let bar = "█".repeat(bar_len);
+
+        // Print band
+        println!(
+            "{:4.0} Hz - {:4.0} Hz | {:>4.1} dB | {}",
+            low_freq, high_freq, db, bar
+        );
+    }
 }
