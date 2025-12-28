@@ -90,10 +90,13 @@ fn main() {
         let band_bins = &spectrum[low_bin..high_bin.min(spectrum.len())];
         // Compute the average magnitude for the band.
         let avg = if !band_bins.is_empty() {
-            band_bins.iter().sum::<f32>() / band_bins.len() as f32
+            band_bins.iter().sum::<f32>() / band_bins.len() as f32 / fft_size as f32
         } else {
             0.0
         };
-        println!("{} ({}-{} Hz): {:.4}", name, low, high, avg);
+        let epsilon = 1e-10; // Small value to avoid log(0)
+        let avg_db = 20.0 * (avg + epsilon).log10();
+
+        println!("{} ({}-{} Hz): {:.4} dB", name, low, high, avg_db);
     }
 }
