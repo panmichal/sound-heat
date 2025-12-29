@@ -1,5 +1,3 @@
-mod decode;
-
 use crossterm::{
     execute,
     terminal::{Clear, ClearType},
