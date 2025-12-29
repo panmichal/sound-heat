@@ -9,6 +9,7 @@ minimp3 = "0.6.1"
 rustfft = "6.4.1"
 symphonia = "0.5.5"
 rodio = "0.17.0"
+crossterm = "0.27"
 
 [features]
 default = ["symphonia/mp3"]
