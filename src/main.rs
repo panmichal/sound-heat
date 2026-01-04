@@ -80,14 +80,23 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
 
     let spectrum: Vec<f32> = buffer.iter().map(|c| c.norm() / fft_size as f32).collect();
 
-    // Draw chart (reuse your previous code, but clear terminal first)
     execute!(stdout(), Clear(ClearType::All)).unwrap();
     let num_bands = 32;
     let min_db = -100.0;
     let max_db = 0.0;
+
+    let min_freq: f32 = 20.0;
+    let max_freq: f32 = sample_rate as f32 / 2.0;
+    let log_min = min_freq.ln();
+    let log_max = max_freq.ln();
+
     for band in 0..num_bands {
-        let low_freq = band as f32 * sample_rate as f32 / 2.0 / num_bands as f32;
-        let high_freq = (band + 1) as f32 * sample_rate as f32 / 2.0 / num_bands as f32;
+        let log_low = log_min + (log_max - log_min) * (band as f32) / (num_bands as f32);
+        println!("log_low: {}", log_low);
+        let log_high = log_min + (log_max - log_min) * ((band + 1) as f32) / (num_bands as f32);
+        let low_freq = log_low.exp();
+        let high_freq = log_high.exp();
+
         let low_bin = ((low_freq / sample_rate as f32) * fft_size as f32).floor() as usize;
         let high_bin = ((high_freq / sample_rate as f32) * fft_size as f32).ceil() as usize;
         let band_bins = &spectrum[low_bin..high_bin.min(spectrum.len())];
