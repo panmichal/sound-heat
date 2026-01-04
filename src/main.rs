@@ -4,6 +4,7 @@ use crossterm::{
 };
 use rodio::{Decoder as RodioDecoder, OutputStream, Source};
 use rustfft::{FftPlanner, num_complex::Complex};
+use std::collections::VecDeque;
 use std::env;
 use std::fs::File;
 use std::io::{BufReader, stdout};
@@ -42,14 +43,24 @@ fn main() {
 
     let mut pos = 0;
 
-    while pos + fft_size * channels <= samples.len() {
-        let frame: Vec<f32> = samples[pos..pos + fft_size * channels]
-            .iter()
-            .step_by(channels)
-            .cloned()
-            .collect();
-        draw_spectrum(&frame, sample_rate, fft_size);
-        pos += hop_size * channels;
+    let mut ring: VecDeque<f32> = VecDeque::with_capacity(fft_size * channels);
+
+    while pos < samples.len() {
+        let end = (pos + hop_size * channels).min(samples.len());
+        let chunk = &samples[pos..end];
+
+        for &s in chunk {
+            if ring.len() == fft_size * channels {
+                ring.pop_front();
+            }
+            ring.push_back(s);
+        }
+        pos = end;
+
+        if ring.len() == fft_size * channels {
+            let frame: Vec<f32> = ring.iter().cloned().collect();
+            draw_spectrum(&frame, sample_rate, fft_size);
+        }
 
         sleep(Duration::from_secs_f32(
             hop_size as f32 / sample_rate as f32,
