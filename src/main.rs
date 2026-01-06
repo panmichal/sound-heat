@@ -1,12 +1,13 @@
 use crossterm::{
     execute,
-    terminal::{Clear, ClearType},
+    terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use rodio::{Decoder as RodioDecoder, OutputStream, Source};
 use rustfft::{FftPlanner, num_complex::Complex};
 use std::collections::VecDeque;
 use std::env;
 use std::fs::File;
+use std::io::Write;
 use std::io::{BufReader, stdout};
 use std::thread::sleep;
 use std::time::Duration;
@@ -50,6 +51,8 @@ fn main() {
     let mut ring: VecDeque<f32> = VecDeque::with_capacity(fft_size * channels);
     let mut smoothed_by_band = vec![MIN_DB; NUM_BANDS];
 
+    execute!(stdout(), EnterAlternateScreen).unwrap();
+
     while pos < samples.len() {
         let end = (pos + hop_size * channels).min(samples.len());
         let chunk = &samples[pos..end];
@@ -78,6 +81,7 @@ fn main() {
             hop_size as f32 / sample_rate as f32,
         ));
     }
+    execute!(stdout(), LeaveAlternateScreen).unwrap();
     sink.sleep_until_end();
 }
 
@@ -115,6 +119,7 @@ fn draw_spectrum(
     let log_min = min_freq.ln();
     let log_max = max_freq.ln();
 
+    let mut stdout = stdout();
     for band in 0..NUM_BANDS {
         let log_low = log_min + (log_max - log_min) * (band as f32) / (NUM_BANDS as f32);
         let log_high = log_min + (log_max - log_min) * ((band + 1) as f32) / (NUM_BANDS as f32);
@@ -136,9 +141,20 @@ fn draw_spectrum(
         let bar_len =
             (((smoothed_by_band[band] - MIN_DB) / (MAX_DB - MIN_DB)) * 150.0).max(0.0) as usize;
         let bar = "█".repeat(bar_len);
-        println!(
-            "{:4.0} Hz - {:4.0} Hz | {:>4.1} dB | {}",
-            low_freq, high_freq, db, bar
-        );
+        // println!(
+        //     "{:4.0} Hz - {:4.0} Hz | {:>4.1} dB | {}",
+        //     low_freq, high_freq, db, bar
+        // );
+        execute!(
+            stdout,
+            crossterm::cursor::MoveTo(0, band as u16),
+            crossterm::style::Print(format!(
+                "{:4.0} Hz - {:4.0} Hz | {:>4.1} dB | {}",
+                low_freq, high_freq, db, bar
+            )),
+        )
+        .unwrap();
     }
+
+    stdout.flush().unwrap();
 }
