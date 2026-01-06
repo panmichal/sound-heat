@@ -74,7 +74,16 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
     let fft = planner.plan_fft_forward(fft_size);
     let mut buffer: Vec<Complex<f32>> = samples
         .iter()
-        .map(|&s| Complex { re: s, im: 0.0 })
+        .enumerate()
+        .map(|(i, &s)| {
+            let hann = 0.5
+                * (1.0
+                    - (2.0 * std::f32::consts::PI * i as f32 / (samples.len() as f32 - 1.0)).cos());
+            Complex {
+                re: s * hann,
+                im: 0.0,
+            }
+        })
         .collect();
     fft.process(&mut buffer);
 
@@ -85,6 +94,9 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
     let min_db = -100.0;
     let max_db = 0.0;
 
+    let mut smoothed_by_band = vec![min_db; num_bands];
+    let smooth_factor = 0.8;
+
     let min_freq: f32 = 20.0;
     let max_freq: f32 = sample_rate as f32 / 2.0;
     let log_min = min_freq.ln();
@@ -92,7 +104,6 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
 
     for band in 0..num_bands {
         let log_low = log_min + (log_max - log_min) * (band as f32) / (num_bands as f32);
-        println!("log_low: {}", log_low);
         let log_high = log_min + (log_max - log_min) * ((band + 1) as f32) / (num_bands as f32);
         let low_freq = log_low.exp();
         let high_freq = log_high.exp();
@@ -107,7 +118,10 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
         };
         let epsilon = 1e-10;
         let db = 20.0 * (avg + epsilon).log10();
-        let bar_len = (((db - min_db) / (max_db - min_db)) * 50.0).max(0.0) as usize;
+        smoothed_by_band[band] =
+            smooth_factor * smoothed_by_band[band] + (1.0 - smooth_factor) * db;
+        let bar_len =
+            (((smoothed_by_band[band] - min_db) / (max_db - min_db)) * 150.0).max(0.0) as usize;
         let bar = "█".repeat(bar_len);
         println!(
             "{:4.0} Hz - {:4.0} Hz | {:>4.1} dB | {}",
