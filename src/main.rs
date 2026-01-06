@@ -58,7 +58,14 @@ fn main() {
         pos = end;
 
         if ring.len() == fft_size * channels {
-            let frame: Vec<f32> = ring.iter().cloned().collect();
+            let mut frame: Vec<f32> = Vec::with_capacity(fft_size);
+            for i in 0..fft_size {
+                let mut sum = 0.0;
+                for ch in 0..channels {
+                    sum += ring[i * channels + ch];
+                }
+                frame.push(sum / channels as f32);
+            }
             draw_spectrum(&frame, sample_rate, fft_size);
         }
 
