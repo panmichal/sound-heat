@@ -11,6 +11,10 @@ use std::io::{BufReader, stdout};
 use std::thread::sleep;
 use std::time::Duration;
 
+const NUM_BANDS: usize = 32;
+const MIN_DB: f32 = -100.0;
+const MAX_DB: f32 = 0.0;
+
 fn main() {
     // Collect command line arguments into a vector of strings.
     let args: Vec<String> = env::args().collect();
@@ -44,6 +48,7 @@ fn main() {
     let mut pos = 0;
 
     let mut ring: VecDeque<f32> = VecDeque::with_capacity(fft_size * channels);
+    let mut smoothed_by_band = vec![MIN_DB; NUM_BANDS];
 
     while pos < samples.len() {
         let end = (pos + hop_size * channels).min(samples.len());
@@ -66,7 +71,7 @@ fn main() {
                 }
                 frame.push(sum / channels as f32);
             }
-            draw_spectrum(&frame, sample_rate, fft_size);
+            draw_spectrum(&frame, sample_rate, fft_size, &mut smoothed_by_band);
         }
 
         sleep(Duration::from_secs_f32(
@@ -76,7 +81,12 @@ fn main() {
     sink.sleep_until_end();
 }
 
-fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
+fn draw_spectrum(
+    samples: &[f32],
+    sample_rate: u32,
+    fft_size: usize,
+    smoothed_by_band: &mut Vec<f32>,
+) {
     let mut planner = FftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(fft_size);
     let mut buffer: Vec<Complex<f32>> = samples
@@ -97,11 +107,7 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
     let spectrum: Vec<f32> = buffer.iter().map(|c| c.norm() / fft_size as f32).collect();
 
     execute!(stdout(), Clear(ClearType::All)).unwrap();
-    let num_bands = 32;
-    let min_db = -100.0;
-    let max_db = 0.0;
 
-    let mut smoothed_by_band = vec![min_db; num_bands];
     let smooth_factor = 0.8;
 
     let min_freq: f32 = 20.0;
@@ -109,9 +115,9 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
     let log_min = min_freq.ln();
     let log_max = max_freq.ln();
 
-    for band in 0..num_bands {
-        let log_low = log_min + (log_max - log_min) * (band as f32) / (num_bands as f32);
-        let log_high = log_min + (log_max - log_min) * ((band + 1) as f32) / (num_bands as f32);
+    for band in 0..NUM_BANDS {
+        let log_low = log_min + (log_max - log_min) * (band as f32) / (NUM_BANDS as f32);
+        let log_high = log_min + (log_max - log_min) * ((band + 1) as f32) / (NUM_BANDS as f32);
         let low_freq = log_low.exp();
         let high_freq = log_high.exp();
 
@@ -128,7 +134,7 @@ fn draw_spectrum(samples: &[f32], sample_rate: u32, fft_size: usize) {
         smoothed_by_band[band] =
             smooth_factor * smoothed_by_band[band] + (1.0 - smooth_factor) * db;
         let bar_len =
-            (((smoothed_by_band[band] - min_db) / (max_db - min_db)) * 150.0).max(0.0) as usize;
+            (((smoothed_by_band[band] - MIN_DB) / (MAX_DB - MIN_DB)) * 150.0).max(0.0) as usize;
         let bar = "█".repeat(bar_len);
         println!(
             "{:4.0} Hz - {:4.0} Hz | {:>4.1} dB | {}",
