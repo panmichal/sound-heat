@@ -1,3 +1,5 @@
+use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::{
     execute,
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
@@ -51,9 +53,42 @@ fn main() {
     let mut ring: VecDeque<f32> = VecDeque::with_capacity(fft_size * channels);
     let mut smoothed_by_band = vec![MIN_DB; NUM_BANDS];
 
+    let mut paused = false;
+
+    enable_raw_mode().unwrap();
     execute!(stdout(), EnterAlternateScreen).unwrap();
 
     while pos < samples.len() {
+        if event::poll(Duration::from_millis(10)).unwrap() {
+            match event::read().unwrap() {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char(' '),
+                    ..
+                }) => {
+                    paused = !paused;
+                    if paused {
+                        sink.pause();
+                    } else {
+                        sink.play();
+                    }
+                }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('q'),
+                    ..
+                }) => {
+                    sink.stop();
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        if paused {
+            sleep(Duration::from_millis(10));
+            continue;
+        }
+
         let end = (pos + hop_size * channels).min(samples.len());
         let chunk = &samples[pos..end];
 
@@ -82,6 +117,7 @@ fn main() {
         ));
     }
     execute!(stdout(), LeaveAlternateScreen).unwrap();
+    disable_raw_mode().unwrap();
     sink.sleep_until_end();
 }
 
