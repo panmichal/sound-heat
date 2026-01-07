@@ -1,3 +1,5 @@
+mod spectrum;
+
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::{
@@ -54,6 +56,8 @@ fn main() {
     let mut smoothed_by_band = vec![MIN_DB; NUM_BANDS];
 
     let mut paused = false;
+    let mut spectrum =
+        spectrum::Spectrum::new(NUM_BANDS, MIN_DB, MAX_DB, 0.8, fft_size, sample_rate);
 
     enable_raw_mode().unwrap();
     execute!(stdout(), EnterAlternateScreen).unwrap();
@@ -109,7 +113,7 @@ fn main() {
                 }
                 frame.push(sum / channels as f32);
             }
-            draw_spectrum(&frame, sample_rate, fft_size, &mut smoothed_by_band);
+            spectrum.render(&frame, &mut stdout());
         }
 
         sleep(Duration::from_secs_f32(
