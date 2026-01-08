@@ -29,10 +29,7 @@ fn main() {
     let file_path = &args[1];
     println!("File path provided: {}", file_path);
 
-    // Open the MP3 file for reading.
-    let file = File::open(file_path).expect("Failed to open file");
-
-    let source = RodioDecoder::new(BufReader::new(file)).unwrap();
+    let source = load_audio(file_path).unwrap();
     let sample_rate = source.sample_rate();
     let channels = source.channels() as usize;
     println!("Loaded audio: {} Hz, {} channels", sample_rate, channels);
@@ -120,4 +117,12 @@ fn main() {
     execute!(stdout(), LeaveAlternateScreen).unwrap();
     disable_raw_mode().unwrap();
     sink.sleep_until_end();
+}
+
+fn load_audio(file_path: &str) -> Result<RodioDecoder<BufReader<File>>, String> {
+    let file = File::open(file_path).map_err(|e| format!("Failed to open file: {}", e))?;
+    let reader = BufReader::new(file);
+    let decoder =
+        RodioDecoder::new(reader).map_err(|e| format!("Failed to decode audio: {}", e))?;
+    Ok(decoder)
 }
