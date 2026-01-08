@@ -14,7 +14,6 @@ pub struct Spectrum {
     pub smooth_factor: f32,
     pub smoothed_by_band: Vec<f32>,
     pub fft_size: usize,
-    fft_planner: FftPlanner<f32>,
     pub fft: std::sync::Arc<dyn rustfft::Fft<f32>>,
     pub sample_rate: u32,
 }
@@ -35,8 +34,7 @@ impl Spectrum {
             smooth_factor,
             smoothed_by_band: vec![min_db; bands],
             fft_size,
-            fft_planner: rustfft::FftPlanner::<f32>::new(),
-            fft: rustfft::FftPlanner::<f32>::new().plan_fft_forward(fft_size),
+            fft: FftPlanner::<f32>::new().plan_fft_forward(fft_size),
             sample_rate,
         }
     }
