@@ -8,7 +8,7 @@ hound = "3.5.1"
 minimp3 = "0.6.1"
 rustfft = "6.4.1"
 symphonia = "0.5.5"
-rodio = "0.17.0"
+rodio = "0.21.1"
 crossterm = "0.27"
 
 [features]

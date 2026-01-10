@@ -6,7 +6,7 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
-use rodio::{Decoder as RodioDecoder, OutputStream, Source};
+use rodio::{Decoder as RodioDecoder, Source};
 use std::collections::VecDeque;
 use std::env;
 use std::fs::File;
@@ -30,16 +30,20 @@ fn main() {
     println!("File path provided: {}", file_path);
 
     let source = load_audio(file_path).unwrap();
+
     let sample_rate = source.sample_rate();
     let channels = source.channels() as usize;
     println!("Loaded audio: {} Hz, {} channels", sample_rate, channels);
-    let samples: Vec<f32> = source.convert_samples::<f32>().collect();
+    let samples: Vec<f32> = source.collect();
     println!("Total samples loaded: {}", samples.len());
-    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let sink = rodio::Sink::try_new(&stream_handle).unwrap();
+    // let (_stream, stream_handle) = OutputStream::from_default_device().unwrap();
+    let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
+    let mixer = stream_handle.mixer();
+    let sink = rodio::Sink::connect_new(mixer);
     let play_source =
         rodio::buffer::SamplesBuffer::new(channels as u16, sample_rate, samples.clone());
     sink.append(play_source);
+
     println!("Playback started...");
 
     let fft_size = 4096;
