@@ -6,7 +6,7 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
-use rodio::{Decoder as RodioDecoder, OutputStream, Source};
+use rodio::{Decoder as RodioDecoder, Source};
 use std::collections::VecDeque;
 use std::env;
 use std::fs::File;
