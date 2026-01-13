@@ -4,7 +4,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::{
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use rodio::{Decoder as RodioDecoder, Source};
 use std::collections::VecDeque;
@@ -42,6 +42,8 @@ fn main() {
     let sink = rodio::Sink::connect_new(mixer);
     let play_source =
         rodio::buffer::SamplesBuffer::new(channels as u16, sample_rate, samples.clone());
+
+    let play_source_clone = play_source.clone();
     sink.append(play_source);
 
     println!("Playback started...");
@@ -111,6 +113,21 @@ fn main() {
                 }
                 frame.push(sum / channels as f32);
             }
+
+            execute!(stdout(), Clear(ClearType::All)).unwrap();
+
+            execute!(
+                stdout(),
+                crossterm::cursor::MoveTo(0, NUM_BANDS as u16 + 2),
+                crossterm::style::Print(format!(
+                    "Current position: {:.2} sec / {:.2} sec",
+                    sink.get_pos().as_secs_f32(),
+                    play_source_clone
+                        .total_duration()
+                        .map_or(0.0, |d| d.as_secs_f32())
+                )),
+            )
+            .unwrap();
             spectrum.render(&frame, &mut stdout());
         }
 
