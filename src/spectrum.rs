@@ -1,9 +1,6 @@
 use std::io::Stdout;
 
-use crossterm::{
-    execute,
-    terminal::{Clear, ClearType},
-};
+use crossterm::execute;
 use rustfft::{FftPlanner, num_complex::Complex};
 use std::io::Write;
 
@@ -60,8 +57,6 @@ impl Spectrum {
             .iter()
             .map(|c| c.norm() / self.fft_size as f32)
             .collect();
-
-        execute!(stdout, Clear(ClearType::All)).unwrap();
 
         let min_freq: f32 = 20.0;
         let max_freq: f32 = self.sample_rate as f32 / 2.0;

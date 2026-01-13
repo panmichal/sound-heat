@@ -4,7 +4,7 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use crossterm::{
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use rodio::{Decoder as RodioDecoder, Source};
 use std::collections::VecDeque;
@@ -42,6 +42,11 @@ fn main() {
     let sink = rodio::Sink::connect_new(mixer);
     let play_source =
         rodio::buffer::SamplesBuffer::new(channels as u16, sample_rate, samples.clone());
+
+    let total_duration = play_source
+        .total_duration()
+        .map_or(0.0, |d| d.as_secs_f32());
+
     sink.append(play_source);
 
     println!("Playback started...");
@@ -111,6 +116,19 @@ fn main() {
                 }
                 frame.push(sum / channels as f32);
             }
+
+            execute!(stdout(), Clear(ClearType::All)).unwrap();
+
+            execute!(
+                stdout(),
+                crossterm::cursor::MoveTo(0, NUM_BANDS as u16 + 2),
+                crossterm::style::Print(format!(
+                    "Current position: {} / {}",
+                    format_duration(sink.get_pos().as_secs_f32()),
+                    format_duration(total_duration)
+                )),
+            )
+            .unwrap();
             spectrum.render(&frame, &mut stdout());
         }
 
@@ -129,4 +147,10 @@ fn load_audio(file_path: &str) -> Result<RodioDecoder<BufReader<File>>, String> 
     let decoder =
         RodioDecoder::new(reader).map_err(|e| format!("Failed to decode audio: {}", e))?;
     Ok(decoder)
+}
+
+fn format_duration(seconds: f32) -> String {
+    let mins = (seconds / 60.0).floor() as u32;
+    let secs = (seconds % 60.0).floor() as u32;
+    format!("{:02}:{:02}", mins, secs)
 }
