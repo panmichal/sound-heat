@@ -120,11 +120,13 @@ fn main() {
                 stdout(),
                 crossterm::cursor::MoveTo(0, NUM_BANDS as u16 + 2),
                 crossterm::style::Print(format!(
-                    "Current position: {:.2} sec / {:.2} sec",
-                    sink.get_pos().as_secs_f32(),
-                    play_source_clone
-                        .total_duration()
-                        .map_or(0.0, |d| d.as_secs_f32())
+                    "Current position: {} / {}",
+                    format_duration(sink.get_pos().as_secs_f32()),
+                    format_duration(
+                        play_source_clone
+                            .total_duration()
+                            .map_or(0.0, |d| d.as_secs_f32())
+                    )
                 )),
             )
             .unwrap();
@@ -146,4 +148,10 @@ fn load_audio(file_path: &str) -> Result<RodioDecoder<BufReader<File>>, String> 
     let decoder =
         RodioDecoder::new(reader).map_err(|e| format!("Failed to decode audio: {}", e))?;
     Ok(decoder)
+}
+
+fn format_duration(seconds: f32) -> String {
+    let mins = (seconds / 60.0).floor() as u32;
+    let secs = (seconds % 60.0).floor() as u32;
+    format!("{:02}:{:02}", mins, secs)
 }
