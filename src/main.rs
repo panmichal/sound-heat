@@ -43,7 +43,10 @@ fn main() {
     let play_source =
         rodio::buffer::SamplesBuffer::new(channels as u16, sample_rate, samples.clone());
 
-    let play_source_clone = play_source.clone();
+    let total_duration = play_source
+        .total_duration()
+        .map_or(0.0, |d| d.as_secs_f32());
+
     sink.append(play_source);
 
     println!("Playback started...");
@@ -122,11 +125,7 @@ fn main() {
                 crossterm::style::Print(format!(
                     "Current position: {} / {}",
                     format_duration(sink.get_pos().as_secs_f32()),
-                    format_duration(
-                        play_source_clone
-                            .total_duration()
-                            .map_or(0.0, |d| d.as_secs_f32())
-                    )
+                    format_duration(total_duration)
                 )),
             )
             .unwrap();
