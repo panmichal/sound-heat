@@ -34,7 +34,8 @@ fn main() {
     let sample_rate = source.sample_rate();
     let channels = source.channels() as usize;
     println!("Loaded audio: {} Hz, {} channels", sample_rate, channels);
-    let samples: Vec<f32> = source.collect();
+    let source_samples: Vec<f32> = source.collect();
+    let samples: Vec<f32> = low_pass_filter(&source_samples, 100.0, sample_rate);
     println!("Total samples loaded: {}", samples.len());
     // let (_stream, stream_handle) = OutputStream::from_default_device().unwrap();
     let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
@@ -153,4 +154,18 @@ fn format_duration(seconds: f32) -> String {
     let mins = (seconds / 60.0).floor() as u32;
     let secs = (seconds % 60.0).floor() as u32;
     format!("{:02}:{:02}", mins, secs)
+}
+
+fn low_pass_filter(samples: &[f32], cutoff: f32, sample_rate: u32) -> Vec<f32> {
+    let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff);
+    let dt = 1.0 / sample_rate as f32;
+    let alpha = dt / (rc + dt);
+    let mut filtered = Vec::with_capacity(samples.len());
+    let mut prev = 0.0;
+    for &s in samples {
+        let curr = alpha * s + (1.0 - alpha) * prev;
+        filtered.push(curr);
+        prev = curr;
+    }
+    filtered
 }
