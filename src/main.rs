@@ -39,36 +39,25 @@ fn main() {
     let sample_rate = source.sample_rate();
     let channels = source.channels() as usize;
     println!("Loaded audio: {} Hz, {} channels", sample_rate, channels);
-    let source_samples: Vec<f32> = source.collect();
-    let samples: Vec<f32> = low_pass_filter(&source_samples, 100.0, sample_rate);
-    println!("Total samples loaded: {}", samples.len());
-    // let (_stream, stream_handle) = OutputStream::from_default_device().unwrap();
-    let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
-    let mixer = stream_handle.mixer();
-    let sink = rodio::Sink::connect_new(mixer);
-
-    let processor = SampleProcessor {
-        state: LowPassFilterState {
+    let processor = SampleProcessor::new(
+        LowPassFilterState {
             prev: 0.0,
             cutoff: 500.0,
             sample_rate,
         },
-        process_fn: |input: f32, state: &mut LowPassFilterState| {
-            filter::low_pass_filter_fn(input, state)
-        },
-    };
+        |input: f32, state: &mut LowPassFilterState| filter::low_pass_filter_fn(input, state),
+    );
 
-    let processed_source = source::ProcessedSource {
-        samples: samples.clone(),
-        position: 0,
-        channels: channels as u16,
-        sample_rate,
-        processor,
-    };
+    let processed_source = source::ProcessedSource::from_source(source, processor);
 
     let total_duration = processed_source
         .total_duration()
         .map_or(0.0, |d| d.as_secs_f32());
+    let samples: Vec<f32> = processed_source.get_samples().clone();
+    println!("Total samples loaded: {}", samples.len());
+    let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
+    let mixer = stream_handle.mixer();
+    let sink = rodio::Sink::connect_new(mixer);
 
     sink.append(processed_source);
 
@@ -175,18 +164,4 @@ fn format_duration(seconds: f32) -> String {
     let mins = (seconds / 60.0).floor() as u32;
     let secs = (seconds % 60.0).floor() as u32;
     format!("{:02}:{:02}", mins, secs)
-}
-
-fn low_pass_filter(samples: &[f32], cutoff: f32, sample_rate: u32) -> Vec<f32> {
-    let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff);
-    let dt = 1.0 / sample_rate as f32;
-    let alpha = dt / (rc + dt);
-    let mut filtered = Vec::with_capacity(samples.len());
-    let mut prev = 0.0;
-    for &s in samples {
-        let curr = alpha * s + (1.0 - alpha) * prev;
-        filtered.push(curr);
-        prev = curr;
-    }
-    filtered
 }
