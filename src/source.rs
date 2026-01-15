@@ -16,6 +16,10 @@ where
     pub fn process(&mut self, input: f32) -> f32 {
         (self.process_fn)(input, &mut self.state)
     }
+
+    pub fn new(state: S, process_fn: F) -> Self {
+        SampleProcessor { state, process_fn }
+    }
 }
 
 pub struct ProcessedSource<S, F>
@@ -27,6 +31,31 @@ where
     pub channels: u16,
     pub sample_rate: u32,
     pub processor: SampleProcessor<S, F>,
+}
+
+impl<S, F> ProcessedSource<S, F>
+where
+    F: FnMut(f32, &mut S) -> f32,
+{
+    pub fn get_samples(&self) -> &Vec<f32> {
+        &self.samples
+    }
+
+    pub fn from_source<T>(source: T, processor: SampleProcessor<S, F>) -> Self
+    where
+        T: rodio::Source<Item = f32>,
+    {
+        let channels = source.channels();
+        let sample_rate = source.sample_rate();
+        let samples: Vec<f32> = source.collect();
+        ProcessedSource {
+            samples,
+            position: 0,
+            channels,
+            sample_rate,
+            processor,
+        }
+    }
 }
 
 impl<S, F> Iterator for ProcessedSource<S, F>
