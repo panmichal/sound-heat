@@ -36,12 +36,19 @@ fn main() {
     let sample_rate = source.sample_rate();
     let channels = source.channels() as usize;
     println!("Loaded audio: {} Hz, {} channels", sample_rate, channels);
-    let processors: Vec<Box<dyn source::BlockProcessor + Send>> =
-        vec![Box::new(filter::LowPassFilterBlockProcessor {
+    let processors: Vec<Box<dyn source::BlockProcessor + Send>> = vec![
+        Box::new(filter::LowPassFilterBlockProcessor {
             prev: 0.0,
             cutoff: 500.0,
             sample_rate,
-        })];
+        }),
+        Box::new(spectrum::SpectrumBlockProcessor {
+            spectrum: spectrum::Spectrum::new(NUM_BANDS, MIN_DB, MAX_DB, 0.8, 4096, sample_rate),
+            stdout: stdout(),
+            channels,
+            fft_buffer: Vec::with_capacity(4096 * channels),
+        }),
+    ];
 
     let processed_source = source::ProcessedSource::from_source(source, processors);
 
@@ -66,8 +73,6 @@ fn main() {
     let mut ring: VecDeque<f32> = VecDeque::with_capacity(fft_size * channels);
 
     let mut paused = false;
-    let mut spectrum =
-        spectrum::Spectrum::new(NUM_BANDS, MIN_DB, MAX_DB, 0.8, fft_size, sample_rate);
 
     enable_raw_mode().unwrap();
     execute!(stdout(), EnterAlternateScreen).unwrap();
@@ -135,7 +140,7 @@ fn main() {
                 )),
             )
             .unwrap();
-            spectrum.render(&frame, &mut stdout());
+            // spectrum.render(&frame, &mut stdout());
         }
 
         sleep(Duration::from_secs_f32(

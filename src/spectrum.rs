@@ -1,8 +1,35 @@
+use crate::source::BlockProcessor;
 use std::io::Stdout;
 
 use crossterm::execute;
 use rustfft::{FftPlanner, num_complex::Complex};
 use std::io::Write;
+
+pub struct SpectrumBlockProcessor {
+    pub spectrum: Spectrum,
+    pub channels: usize,
+    pub stdout: Stdout,
+    pub fft_buffer: Vec<f32>,
+}
+
+impl BlockProcessor for SpectrumBlockProcessor {
+    fn process_sample(&mut self, input: f32) -> Option<f32> {
+        self.fft_buffer.push(input);
+        if self.fft_buffer.len() == self.fft_buffer.capacity() {
+            let mut frame: Vec<f32> = Vec::with_capacity(self.spectrum.fft_size);
+            for i in 0..self.spectrum.fft_size {
+                let mut sum = 0.0;
+                for ch in 0..self.channels {
+                    sum += self.fft_buffer[i * self.channels + ch];
+                }
+                frame.push(sum / self.channels as f32);
+            }
+            self.spectrum.render(&frame, &mut self.stdout);
+            self.fft_buffer.clear();
+        }
+        Some(input)
+    }
+}
 
 pub struct Spectrum {
     pub bands: usize,

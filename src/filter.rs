@@ -7,10 +7,6 @@ pub struct LowPassFilterBlockProcessor {
 }
 
 impl BlockProcessor for LowPassFilterBlockProcessor {
-    fn block_size(&self) -> usize {
-        1
-    }
-
     fn process_sample(&mut self, input: f32) -> Option<f32> {
         let rc = 1.0 / (2.0 * std::f32::consts::PI * self.cutoff);
         let dt = 1.0 / self.sample_rate as f32;

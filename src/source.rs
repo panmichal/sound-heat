@@ -2,7 +2,6 @@ use rodio::Source;
 use std::time::Duration;
 
 pub trait BlockProcessor: Send {
-    fn block_size(&self) -> usize;
     fn process_sample(&mut self, sample: f32) -> Option<f32>;
 }
 
