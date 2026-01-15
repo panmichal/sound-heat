@@ -1,3 +1,5 @@
+mod filter;
+mod source;
 mod spectrum;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
@@ -13,6 +15,9 @@ use std::fs::File;
 use std::io::{BufReader, stdout};
 use std::thread::sleep;
 use std::time::Duration;
+
+use crate::filter::LowPassFilterState;
+use crate::source::SampleProcessor;
 
 const NUM_BANDS: usize = 32;
 const MIN_DB: f32 = -100.0;
@@ -41,14 +46,31 @@ fn main() {
     let stream_handle = rodio::OutputStreamBuilder::open_default_stream().unwrap();
     let mixer = stream_handle.mixer();
     let sink = rodio::Sink::connect_new(mixer);
-    let play_source =
-        rodio::buffer::SamplesBuffer::new(channels as u16, sample_rate, samples.clone());
 
-    let total_duration = play_source
+    let processor = SampleProcessor {
+        state: LowPassFilterState {
+            prev: 0.0,
+            cutoff: 500.0,
+            sample_rate,
+        },
+        process_fn: |input: f32, state: &mut LowPassFilterState| {
+            filter::low_pass_filter_fn(input, state)
+        },
+    };
+
+    let processed_source = source::ProcessedSource {
+        samples: samples.clone(),
+        position: 0,
+        channels: channels as u16,
+        sample_rate,
+        processor,
+    };
+
+    let total_duration = processed_source
         .total_duration()
         .map_or(0.0, |d| d.as_secs_f32());
 
-    sink.append(play_source);
+    sink.append(processed_source);
 
     println!("Playback started...");
 
@@ -117,7 +139,6 @@ fn main() {
                 }
                 frame.push(sum / channels as f32);
             }
-
             execute!(stdout(), Clear(ClearType::All)).unwrap();
 
             execute!(
