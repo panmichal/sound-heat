@@ -1,47 +1,25 @@
 use rodio::Source;
 use std::time::Duration;
 
-pub struct SampleProcessor<S, F>
-where
-    F: FnMut(f32, &mut S) -> f32,
-{
-    pub state: S,
-    pub process_fn: F,
+pub trait BlockProcessor: Send {
+    fn block_size(&self) -> usize;
+    fn process_sample(&mut self, sample: f32) -> Option<f32>;
 }
 
-impl<S, F> SampleProcessor<S, F>
-where
-    F: FnMut(f32, &mut S) -> f32,
-{
-    pub fn process(&mut self, input: f32) -> f32 {
-        (self.process_fn)(input, &mut self.state)
-    }
-
-    pub fn new(state: S, process_fn: F) -> Self {
-        SampleProcessor { state, process_fn }
-    }
-}
-
-pub struct ProcessedSource<S, F>
-where
-    F: FnMut(f32, &mut S) -> f32,
-{
+pub struct ProcessedSource {
     pub samples: Vec<f32>,
     pub position: usize,
     pub channels: u16,
     pub sample_rate: u32,
-    pub processor: SampleProcessor<S, F>,
+    processors: Vec<Box<dyn BlockProcessor + Send>>,
 }
 
-impl<S, F> ProcessedSource<S, F>
-where
-    F: FnMut(f32, &mut S) -> f32,
-{
+impl ProcessedSource {
     pub fn get_samples(&self) -> &Vec<f32> {
         &self.samples
     }
 
-    pub fn from_source<T>(source: T, processor: SampleProcessor<S, F>) -> Self
+    pub fn from_source<T>(source: T, processors: Vec<Box<dyn BlockProcessor + Send>>) -> Self
     where
         T: rodio::Source<Item = f32>,
     {
@@ -53,32 +31,32 @@ where
             position: 0,
             channels,
             sample_rate,
-            processor,
+            processors,
         }
     }
 }
 
-impl<S, F> Iterator for ProcessedSource<S, F>
-where
-    F: FnMut(f32, &mut S) -> f32,
-{
+impl Iterator for ProcessedSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.position >= self.samples.len() {
             return None;
         }
-        let input_sample = self.samples[self.position];
-        let output_sample = self.processor.process(input_sample);
+        let mut sample = self.samples[self.position];
+        // let output_sample = self.processor.process(input_sample);
+
+        for proc in self.processors.iter_mut() {
+            if let Some(processed_sample) = proc.process_sample(sample) {
+                sample = processed_sample;
+            }
+        }
         self.position += 1;
-        Some(output_sample)
+        Some(sample)
     }
 }
 
-impl<S, F> Source for ProcessedSource<S, F>
-where
-    F: FnMut(f32, &mut S) -> f32,
-{
+impl Source for ProcessedSource {
     fn current_span_len(&self) -> Option<usize> {
         Some(self.samples.len() - self.position)
     }

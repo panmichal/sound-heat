@@ -16,9 +16,6 @@ use std::io::{BufReader, stdout};
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::filter::LowPassFilterState;
-use crate::source::SampleProcessor;
-
 const NUM_BANDS: usize = 32;
 const MIN_DB: f32 = -100.0;
 const MAX_DB: f32 = 0.0;
@@ -39,16 +36,14 @@ fn main() {
     let sample_rate = source.sample_rate();
     let channels = source.channels() as usize;
     println!("Loaded audio: {} Hz, {} channels", sample_rate, channels);
-    let processor = SampleProcessor::new(
-        LowPassFilterState {
+    let processors: Vec<Box<dyn source::BlockProcessor + Send>> =
+        vec![Box::new(filter::LowPassFilterBlockProcessor {
             prev: 0.0,
             cutoff: 500.0,
             sample_rate,
-        },
-        |input: f32, state: &mut LowPassFilterState| filter::low_pass_filter_fn(input, state),
-    );
+        })];
 
-    let processed_source = source::ProcessedSource::from_source(source, processor);
+    let processed_source = source::ProcessedSource::from_source(source, processors);
 
     let total_duration = processed_source
         .total_duration()
