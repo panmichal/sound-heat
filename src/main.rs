@@ -77,6 +77,8 @@ fn main() {
     execute!(stdout(), EnterAlternateScreen).unwrap();
 
     sink.append(processed_source);
+    println!("Playback started...");
+
     let mut paused = false;
 
     while !sink.empty() {
@@ -126,11 +128,9 @@ fn main() {
         sleep(Duration::from_millis(100));
     }
 
-    println!("Playback started...");
-
     sink.sleep_until_end();
-    execute!(stdout(), LeaveAlternateScreen).unwrap();
     disable_raw_mode().unwrap();
+    execute!(stdout(), LeaveAlternateScreen).unwrap();
 }
 
 fn load_audio(file_path: &str) -> Result<RodioDecoder<BufReader<File>>, String> {
