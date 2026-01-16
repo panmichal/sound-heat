@@ -4,7 +4,6 @@ use std::io::Stdout;
 use crossterm::{execute, terminal::Clear, terminal::ClearType};
 use rustfft::{FftPlanner, num_complex::Complex};
 use std::collections::VecDeque;
-use std::io::Write;
 
 pub struct SpectrumBlockProcessor {
     pub spectrum: Spectrum,
@@ -132,7 +131,5 @@ impl Spectrum {
             )
             .unwrap();
         }
-
-        stdout.flush().unwrap();
     }
 }
