@@ -1,8 +1,36 @@
+use crate::source::BlockProcessor;
 use std::io::Stdout;
 
-use crossterm::execute;
+use crossterm::{execute, terminal::Clear, terminal::ClearType};
 use rustfft::{FftPlanner, num_complex::Complex};
-use std::io::Write;
+use std::collections::VecDeque;
+
+pub struct SpectrumBlockProcessor {
+    pub spectrum: Spectrum,
+    pub channels: usize,
+    pub stdout: Stdout,
+    pub fft_buffer: VecDeque<f32>,
+}
+
+impl BlockProcessor for SpectrumBlockProcessor {
+    fn process_sample(&mut self, input: f32) -> Option<f32> {
+        self.fft_buffer.push_back(input);
+        if self.fft_buffer.len() == self.fft_buffer.capacity() {
+            let mut frame: Vec<f32> = Vec::with_capacity(self.spectrum.fft_size);
+            for i in 0..self.spectrum.fft_size {
+                let mut sum = 0.0;
+                for ch in 0..self.channels {
+                    sum += self.fft_buffer[i * self.channels + ch];
+                }
+                frame.push(sum / self.channels as f32);
+            }
+            self.spectrum.render(&frame, &mut self.stdout);
+            self.fft_buffer
+                .drain(0..self.spectrum.fft_hop_size * self.channels);
+        }
+        Some(input)
+    }
+}
 
 pub struct Spectrum {
     pub bands: usize,
@@ -11,6 +39,7 @@ pub struct Spectrum {
     pub smooth_factor: f32,
     pub smoothed_by_band: Vec<f32>,
     pub fft_size: usize,
+    pub fft_hop_size: usize,
     pub fft: std::sync::Arc<dyn rustfft::Fft<f32>>,
     pub sample_rate: u32,
 }
@@ -22,6 +51,7 @@ impl Spectrum {
         max_db: f32,
         smooth_factor: f32,
         fft_size: usize,
+        fft_hop_size: usize,
         sample_rate: u32,
     ) -> Self {
         Spectrum {
@@ -31,6 +61,7 @@ impl Spectrum {
             smooth_factor,
             smoothed_by_band: vec![min_db; bands],
             fft_size,
+            fft_hop_size,
             fft: FftPlanner::<f32>::new().plan_fft_forward(fft_size),
             sample_rate,
         }
@@ -62,6 +93,7 @@ impl Spectrum {
         let max_freq: f32 = self.sample_rate as f32 / 2.0;
         let log_min = min_freq.ln();
         let log_max = max_freq.ln();
+        execute!(stdout, Clear(ClearType::All)).unwrap();
 
         for band in 0..self.bands {
             let log_low = log_min + (log_max - log_min) * (band as f32) / (self.bands as f32);
@@ -89,10 +121,6 @@ impl Spectrum {
                 * 150.0)
                 .max(0.0) as usize;
             let bar = "█".repeat(bar_len);
-            // println!(
-            //     "{:4.0} Hz - {:4.0} Hz | {:>4.1} dB | {}",
-            //     low_freq, high_freq, db, bar
-            // );
             execute!(
                 stdout,
                 crossterm::cursor::MoveTo(0, band as u16),
@@ -103,7 +131,5 @@ impl Spectrum {
             )
             .unwrap();
         }
-
-        stdout.flush().unwrap();
     }
 }
