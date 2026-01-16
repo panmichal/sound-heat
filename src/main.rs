@@ -35,6 +35,8 @@ fn main() {
 
     let sample_rate = source.sample_rate();
     let channels = source.channels() as usize;
+    let fft_size = 4096;
+    let hop_size = fft_size / 2;
     println!("Loaded audio: {} Hz, {} channels", sample_rate, channels);
     let processors: Vec<Box<dyn source::BlockProcessor + Send>> = vec![
         Box::new(filter::LowPassFilterBlockProcessor {
@@ -43,10 +45,18 @@ fn main() {
             sample_rate,
         }),
         Box::new(spectrum::SpectrumBlockProcessor {
-            spectrum: spectrum::Spectrum::new(NUM_BANDS, MIN_DB, MAX_DB, 0.8, 4096, sample_rate),
+            spectrum: spectrum::Spectrum::new(
+                NUM_BANDS,
+                MIN_DB,
+                MAX_DB,
+                0.8,
+                fft_size,
+                hop_size,
+                sample_rate,
+            ),
             stdout: stdout(),
             channels,
-            fft_buffer: Vec::with_capacity(4096 * channels),
+            fft_buffer: VecDeque::with_capacity(fft_size * channels),
         }),
     ];
 
@@ -61,21 +71,18 @@ fn main() {
     let mixer = stream_handle.mixer();
     let sink = rodio::Sink::connect_new(mixer);
 
+    enable_raw_mode().unwrap();
+    execute!(stdout(), EnterAlternateScreen).unwrap();
+
     sink.append(processed_source);
 
     println!("Playback started...");
-
-    let fft_size = 4096;
-    let hop_size = fft_size / 2;
 
     let mut pos = 0;
 
     let mut ring: VecDeque<f32> = VecDeque::with_capacity(fft_size * channels);
 
     let mut paused = false;
-
-    enable_raw_mode().unwrap();
-    execute!(stdout(), EnterAlternateScreen).unwrap();
 
     while pos < samples.len() {
         if event::poll(Duration::from_millis(10)).unwrap() {
@@ -128,7 +135,7 @@ fn main() {
                 }
                 frame.push(sum / channels as f32);
             }
-            execute!(stdout(), Clear(ClearType::All)).unwrap();
+            // execute!(stdout(), Clear(ClearType::All)).unwrap();
 
             execute!(
                 stdout(),
@@ -147,9 +154,9 @@ fn main() {
             hop_size as f32 / sample_rate as f32,
         ));
     }
+    sink.sleep_until_end();
     execute!(stdout(), LeaveAlternateScreen).unwrap();
     disable_raw_mode().unwrap();
-    sink.sleep_until_end();
 }
 
 fn load_audio(file_path: &str) -> Result<RodioDecoder<BufReader<File>>, String> {
